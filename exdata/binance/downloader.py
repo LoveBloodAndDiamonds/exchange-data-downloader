@@ -36,11 +36,10 @@ class Downloader:
         year: int,
         month: int,
         day: int | None = None,
-        timeframe: Timeframes | None = None,
-        *,
-        market_type: MarketTypes = "futures/um",
-        period_type: PeriodTypes = "monthly",
         data_type: DataTypes = "klines",
+        market_type: MarketTypes = "futures/um",
+        timeframe: Timeframes | None = None,
+        period_type: PeriodTypes = "monthly",
         unzip: bool = False,
     ) -> str:
         """Скачивает данные с data.binance.vision.com.
