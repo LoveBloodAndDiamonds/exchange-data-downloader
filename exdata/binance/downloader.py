@@ -41,6 +41,7 @@ class Downloader:
         market_type: MarketTypes = "futures/um",
         period_type: PeriodTypes = "monthly",
         data_type: DataTypes = "klines",
+        unzip: bool = False,
     ) -> str:
         """Скачивает данные с data.binance.vision.com.
 
@@ -52,7 +53,8 @@ class Downloader:
         :param data_type: Тип данных, например "klines"; список см. в типе DataTypes.
         :param market_type: Тип рынка, например "futures/um"; список см. в типе MarketTypes.
         :param period_type: Тип периода, например "monthly"; список см. в типе PeriodTypes.
-        :return: Путь к распакованному CSV-файлу.
+        :param unzip: Флаг, нужно ли распаковывать архив после скачивания.
+        :return: Путь к ZIP-архиву либо к распакованному CSV-файлу, если unzip=True.
         """
         # Нормализуем числовые значения в строковые представления для эндпоинта
         year_str = self._normalize_year(year)
@@ -71,23 +73,28 @@ class Downloader:
             data_type=data_type,
         )
 
-        # Проверяем, загружали ли мы уже этот CSV ранее
-        csv_filename: str = self._data_folder_path + endpoint + ".csv"
-        if os.path.exists(csv_filename):
-            self._logger.debug(f"File {csv_filename} already exists.")
-            return csv_filename
+        # Проверяем, есть ли уже готовый файл (архив или CSV в зависимости от флага)
+        target_extension = ".csv" if unzip else ".zip"
+        target_filename: str = self._data_folder_path + endpoint + target_extension
+        if os.path.exists(target_filename):
+            self._logger.debug(f"File {target_filename} already exists.")
+            return target_filename
 
         # Создаём директорию для будущего файла вместе с родительскими каталогами
-        os.makedirs(os.path.dirname(csv_filename), exist_ok=True)
-        self._logger.debug(f"Created necessary directories for {csv_filename}")
+        os.makedirs(os.path.dirname(target_filename), exist_ok=True)
+        self._logger.debug(f"Created necessary directories for {target_filename}")
 
         # Скачиваем ZIP-архив с данными
         archive_filename: str = self._retrieve_archive(endpoint=endpoint)
         self._logger.debug(f"Archive downloaded to {archive_filename}")
 
+        if not unzip:
+            self._logger.debug("Skipping archive extraction per unzip=False")
+            return archive_filename
+
         # Распаковываем архив и удаляем его
         data_filename: str = self._extract_archive(
-            extract_from=archive_filename, extract_to=csv_filename
+            extract_from=archive_filename, extract_to=target_filename
         )
         self._logger.debug(f"Data extracted to {data_filename}")
 

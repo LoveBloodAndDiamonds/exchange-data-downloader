@@ -3,6 +3,7 @@
 
 # Downloaded files
 test_data
+benchmark
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

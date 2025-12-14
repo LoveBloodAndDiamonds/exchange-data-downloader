@@ -9,6 +9,7 @@ def main() -> None:
         year=2025,
         month=10,
         timeframe="15m",
+        unzip=False,
     )
     print(path)
 
