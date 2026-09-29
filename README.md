@@ -1,6 +1,6 @@
 # Exchange Data Downloader
 
-`exchange-data-downloader` — простая библиотека для скачивания и распаковки исторических данных с криптовалютных бирж. Она автоматически создаёт структуру папок, кэширует уже загруженные файлы и умеет работать с разными типами данных (klines, trades, funding и др.). Отлично подходит для бэктестов, аналитических пайплайнов и подготовки датасетов.
+`exchange-data-downloader` — простая библиотека для скачивания и распаковки исторических данных с криптовалютных бирж (Binance и Bybit). Она автоматически создаёт структуру папок, кэширует уже загруженные файлы и умеет работать с разными типами данных (klines, trades, funding и др.). Отлично подходит для бэктестов, аналитических пайплайнов и подготовки датасетов.
 
 ## Установка
 
@@ -84,6 +84,47 @@ for current in intervals:
 ```
 
 Функция `generate_intervals` возвращает кортеж объектов `date`, что упрощает обход диапазонов.
+
+## Bybit
+
+Данные берутся с [public.bybit.com](https://public.bybit.com/). Доступны только сделки (`trades`):
+
+| `market_type` | `period_type`          | Что внутри                                                                 |
+|---------------|------------------------|----------------------------------------------------------------------------|
+| `futures`     | `daily`                | USDT, USDC (`...PERP`), инверсные (`BTCUSD`) и срочные (`BTC-26DEC25`) контракты |
+| `spot`        | `daily`, `monthly`     | Спотовые пары                                                              |
+
+```python
+from exdata import BybitDownloader
+
+downloader = BybitDownloader(data_folder_path="data/bybit")
+
+# Сделки по фьючерсу за день
+csv_path = downloader.download(
+    symbol="BTCUSDT",
+    year=2025,
+    month=3,
+    day=15,
+    market_type="futures",
+    period_type="daily",
+    unzip=True,
+)
+
+# Сделки по споту за месяц
+gz_path = downloader.download(
+    symbol="ETHUSDT",
+    year=2025,
+    month=3,
+    market_type="spot",
+    period_type="monthly",
+)
+```
+
+- Архивы Bybit имеют формат `.csv.gz`. При `unzip=False` возвращается путь к `.csv.gz`, при `unzip=True` — к распакованному `.csv`.
+- Время в файлах: у фьючерсов — секунды (float), у спота — миллисекунды.
+- Файл `monthly` для спота появляется только после окончания месяца.
+- Для `market_type="futures"` доступен только `period_type="daily"`, иначе будет `InvalidParamsError`.
+- Параметра `timeframe` нет: свечи Bybit (`kline_for_metatrader4`) библиотека не поддерживает.
 
 ## Полезные замечания
 

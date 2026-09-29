@@ -1,34 +1,19 @@
 __all__ = ["Downloader"]
 
-import os.path
-import urllib.error
-import urllib.request
+import os
 import zipfile
-from logging import Logger as LoggingLogger
 
-from loguru import _Logger as LoguruLogger  # type: ignore
-from loguru import logger
-
-from exdata.exceptions import InvalidParamsError, NotFoundError
+from exdata.base import BaseDownloader
+from exdata.exceptions import InvalidParamsError
 
 from .types import DataTypes, MarketTypes, PeriodTypes, Timeframes
 
 
-class Downloader:
+class Downloader(BaseDownloader):
     """Класс содержит логику загрузки наборов данных с публичного ресурса data.binance.vision."""
 
     _base_url: str = "https://data.binance.vision/data/"  # базовый URL Binance Vision
-
-    def __init__(
-        self,
-        data_folder_path: str = "data/",
-        logger_instance: LoguruLogger | LoggingLogger | None = None,
-    ) -> None:
-        """Принимает путь к каталогу данных и конфигурирует логгер."""
-        self._data_folder_path: str = (
-            data_folder_path if data_folder_path.endswith("/") else data_folder_path + "/"
-        )
-        self._logger: LoguruLogger | LoggingLogger = logger_instance or logger
+    _archive_extension: str = ".zip"  # Binance отдаёт данные в ZIP-архивах
 
     def download(
         self,
@@ -72,32 +57,7 @@ class Downloader:
             data_type=data_type,
         )
 
-        # Проверяем, есть ли уже готовый файл (архив или CSV в зависимости от флага)
-        target_extension = ".csv" if unzip else ".zip"
-        target_filename: str = self._data_folder_path + endpoint + target_extension
-        if os.path.exists(target_filename):
-            self._logger.debug(f"File {target_filename} already exists.")
-            return target_filename
-
-        # Создаём директорию для будущего файла вместе с родительскими каталогами
-        os.makedirs(os.path.dirname(target_filename), exist_ok=True)
-        self._logger.debug(f"Created necessary directories for {target_filename}")
-
-        # Скачиваем ZIP-архив с данными
-        archive_filename: str = self._retrieve_archive(endpoint=endpoint)
-        self._logger.debug(f"Archive downloaded to {archive_filename}")
-
-        if not unzip:
-            self._logger.debug("Skipping archive extraction per unzip=False")
-            return archive_filename
-
-        # Распаковываем архив и удаляем его
-        data_filename: str = self._extract_archive(
-            extract_from=archive_filename, extract_to=target_filename
-        )
-        self._logger.debug(f"Data extracted to {data_filename}")
-
-        return data_filename
+        return self._download_endpoint(endpoint=endpoint, unzip=unzip)
 
     def _extract_archive(self, extract_from: str, extract_to: str) -> str:
         """Распаковывает данные из ZIP-архива и удаляет исходный файл."""
@@ -111,48 +71,6 @@ class Downloader:
         os.remove(extract_from)
 
         return extracted_file_path
-
-    @staticmethod
-    def _normalize_year(year: int) -> str:
-        """Преобразует численный год в строку формата YYYY и проверяет диапазон."""
-        if year <= 0:
-            raise InvalidParamsError("Год должен быть положительным целым числом.")
-
-        return f"{year:04d}"
-
-    @staticmethod
-    def _normalize_month(month: int) -> str:
-        """Преобразует численный месяц в строку формата MM и проверяет диапазон."""
-        if not 1 <= month <= 12:
-            raise InvalidParamsError("Месяц должен быть в диапазоне от 1 до 12.")
-
-        return f"{month:02d}"
-
-    @staticmethod
-    def _normalize_day(day: int | None) -> str | None:
-        """Приводит день месяца к строке DD либо возвращает None."""
-        if day is None:
-            return None
-
-        if not 1 <= day <= 31:
-            raise InvalidParamsError("День должен быть в диапазоне от 1 до 31.")
-
-        return f"{day:02d}"
-
-    def _retrieve_archive(self, endpoint: str) -> str:
-        """Скачивает ZIP-архив по построенному URL и возвращает путь до файла.
-
-        :param endpoint: Конечная часть URL.
-        :return: Путь к загруженному ZIP-файлу.
-        """
-        try:
-            self._logger.debug(f"Downloading archive from endpoint: {endpoint}")
-            return urllib.request.urlretrieve(
-                url=self._base_url + endpoint + ".zip",
-                filename=self._data_folder_path + endpoint + ".zip",
-            )[0]
-        except urllib.error.URLError as e:
-            raise NotFoundError(f"Failed to download archive: {e.reason}") from e
 
     def _compare_endpoint(
         self,
